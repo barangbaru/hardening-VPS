@@ -23,7 +23,7 @@ Automated hardening script, dirancang untuk kebutuhan production, security basel
 
 
 <details> 
-   <summary>🚀 Fitur Utama Ubuntu 24.04</summary>
+   <summary>🚀 Ubuntu 24.04</summary>
 <div>
   <samp>
 
