@@ -1,25 +1,7 @@
 # ==============================
 # WINDOWS VPS HARDENING SCRIPT (ALL-IN-ONE)
 # Windows Server 2016/2019/2022
-#
-# Includes:
-# - Force run as Administrator (auto-elevate)
-# - Create local user: clouduser (random password, no input) + allow RDP
-# - Disable Guest account
-# - Logon banner warning
-# - RDP port -> 3889
-# - Limit RDP max resolution -> 1280x1024 (server policy limit)
-# - Firewall default inbound deny + allow RDP 3889 (optionally restrict by IP)
-# - Disable SMBv1, NetBIOS, LM hash, anonymous enum
-# - Disable NTLMv1 (prefer NTLMv2 only) + enable/require SMB signing (client+server)
-# - RDP brute-force threshold via policy (Account Lockout Policy)
-# - Enable auditing
-# - Install IPBan (fail2ban-like for Windows)
-# - Enable Microsoft Defender + ASR rules (Block)
-# - Apply Explorer view (show hidden, show OS files, show extensions) to ALL user profiles
-#
-# Run:
-#   powershell.exe -ExecutionPolicy Bypass -File .\windows-hardening.ps1
+# Run as Admin (auto-elevate included)
 # ==============================
 
 # ==============================
@@ -47,23 +29,9 @@ $NewRdpPort      = 3889
 $CloudUser       = "clouduser"
 $PasswordLength  = 20
 
-# RDP brute-force threshold via policy (Account Lockout Policy)
-# Recommended ranges (adjust as needed):
-$LockoutThreshold = 5      # failed attempts
-$LockoutDuration  = 30     # minutes account locked
-$LockoutWindow    = 30     # minutes window for counting attempts
-
 # Optional: restrict RDP to trusted IPs only
 # Example: $TrustedRdpIPs = @("203.0.113.10","198.51.100.25")
 $TrustedRdpIPs   = @()
-
-# Logon banner warning
-$LogonBannerTitle = "WARNING: Authorized Access Only"
-$LogonBannerText  = @"
-This system is for authorized use only.
-All activities may be monitored and recorded.
-Unauthorized access is prohibited and may be prosecuted.
-"@
 
 Write-Host "Starting Windows VPS Hardening..." -ForegroundColor Cyan
 
@@ -119,7 +87,7 @@ function LocalUser-Exists($name) {
         }
     } catch {}
 
-    cmd.exe /c "net user $name" >$null 2>&1
+    $null = cmd.exe /c "net user $name" 2>$null
     return ($LASTEXITCODE -eq 0)
 }
 
@@ -152,91 +120,11 @@ function Create-CloudUser($name, $plainPassword) {
         $created = $true
     }
 
-    # Allow RDP login
+    # Allow RDP login by group membership
     cmd.exe /c "net localgroup `"Remote Desktop Users`" $name /add" | Out-Null
     cmd.exe /c "net localgroup `"Users`" $name /add" | Out-Null
 
     return $created
-}
-
-# ==============================
-# Explorer view for ALL user profiles (HKU loaded + load NTUSER.DAT per profile + Default User)
-# ==============================
-function Set-ExplorerViewForHiveRoot {
-    param(
-        [Parameter(Mandatory=$true)][string]$HiveRoot # e.g. "Registry::HKEY_USERS\S-1-5-21-...\Software..."
-    )
-
-    $adv = Join-Path $HiveRoot "Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-    New-Item -Path $adv -Force | Out-Null
-
-    # Show hidden files/folders
-    New-ItemProperty -Path $adv -Name "Hidden" -PropertyType DWord -Value 1 -Force | Out-Null
-    # Show protected operating system files
-    New-ItemProperty -Path $adv -Name "ShowSuperHidden" -PropertyType DWord -Value 1 -Force | Out-Null
-    # Show file extensions
-    New-ItemProperty -Path $adv -Name "HideFileExt" -PropertyType DWord -Value 0 -Force | Out-Null
-}
-
-function Apply-ExplorerViewToAllProfiles {
-    Write-Host "Applying Explorer view to ALL user profiles (hidden + OS files + extensions)..." -ForegroundColor Cyan
-
-    # 1) Already loaded user hives
-    $loadedSids = @()
-    try {
-        $loadedSids = (Get-ChildItem "Registry::HKEY_USERS" -ErrorAction SilentlyContinue |
-            Where-Object { $_.PSChildName -match '^S-1-5-21-' } |
-            Select-Object -ExpandProperty PSChildName)
-    } catch {}
-
-    foreach ($sid in $loadedSids) {
-        try { Set-ExplorerViewForHiveRoot -HiveRoot ("Registry::HKEY_USERS\{0}" -f $sid) } catch {}
-    }
-
-    # 2) All local profiles from ProfileList (load NTUSER.DAT if not loaded)
-    $profileListPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
-    $profileKeys = Get-ChildItem $profileListPath -ErrorAction SilentlyContinue |
-        Where-Object { $_.PSChildName -match '^S-1-5-21-' }
-
-    foreach ($k in $profileKeys) {
-        $sid = $k.PSChildName
-        $profilePath = (Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue).ProfileImagePath
-        if (-not $profilePath) { continue }
-
-        $ntuser = Join-Path $profilePath "NTUSER.DAT"
-        if (-not (Test-Path $ntuser)) { continue }
-
-        # If hive already loaded, skip load/unload
-        $alreadyLoaded = Test-Path ("Registry::HKEY_USERS\{0}" -f $sid)
-        if ($alreadyLoaded) {
-            try { Set-ExplorerViewForHiveRoot -HiveRoot ("Registry::HKEY_USERS\{0}" -f $sid) } catch {}
-            continue
-        }
-
-        # Load hive, set, unload
-        try {
-            reg.exe load ("HKU\{0}" -f $sid) $ntuser | Out-Null
-            Set-ExplorerViewForHiveRoot -HiveRoot ("Registry::HKEY_USERS\{0}" -f $sid)
-        } catch {
-            Write-Host "Failed to load/set hive for SID $sid ($profilePath): $($_.Exception.Message)" -ForegroundColor Yellow
-        } finally {
-            try { reg.exe unload ("HKU\{0}" -f $sid) | Out-Null } catch {}
-        }
-    }
-
-    # 3) Default user profile (for NEW users)
-    $defaultNtUser = "C:\Users\Default\NTUSER.DAT"
-    if (Test-Path $defaultNtUser) {
-        $tempHive = "HKU\_DEFAULTUSER_HARDEN"
-        try {
-            reg.exe load $tempHive $defaultNtUser | Out-Null
-            Set-ExplorerViewForHiveRoot -HiveRoot "Registry::HKEY_USERS\_DEFAULTUSER_HARDEN"
-        } catch {
-            Write-Host "Failed to set Default User hive: $($_.Exception.Message)" -ForegroundColor Yellow
-        } finally {
-            try { reg.exe unload $tempHive | Out-Null } catch {}
-        }
-    }
 }
 
 # ------------------------------
@@ -255,27 +143,6 @@ try {
 } catch {
     Write-Host "Cloud user creation FAILED: $($_.Exception.Message)" -ForegroundColor Red
 }
-
-# ------------------------------
-# 0b) Disable Guest account
-# ------------------------------
-Write-Host "Disabling Guest account..."
-try {
-    if (Get-Command Get-LocalUser -ErrorAction SilentlyContinue) {
-        $guest = Get-LocalUser -Name "Guest" -ErrorAction SilentlyContinue
-        if ($guest -and $guest.Enabled) { Disable-LocalUser -Name "Guest" -ErrorAction SilentlyContinue }
-    }
-} catch {}
-cmd.exe /c "net user Guest /active:no" | Out-Null
-
-# ------------------------------
-# 0c) Logon banner warning
-# ------------------------------
-Write-Host "Configuring logon banner warning..."
-$logonReg = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-New-Item -Path $logonReg -Force | Out-Null
-Set-ItemProperty -Path $logonReg -Name "legalnoticecaption" -Type String -Value $LogonBannerTitle
-Set-ItemProperty -Path $logonReg -Name "legalnoticetext"    -Type String -Value $LogonBannerText
 
 # ------------------------------
 # 1) Disable SMBv1
@@ -299,28 +166,16 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v RestrictAnonymous /t REG_
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v RestrictAnonymousSAM /t REG_DWORD /d 1 /f | Out-Null
 
 # ------------------------------
-# 3b) Disable NTLMv1 (prefer NTLMv2 only) + SMB signing (client + server)
-# ------------------------------
-Write-Host "Disabling NTLMv1 (prefer NTLMv2 only) + enforcing SMB signing..."
-# NTLM: send NTLMv2 only, refuse LM & NTLM (helps disable NTLMv1 usage)
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v LmCompatibilityLevel /t REG_DWORD /d 5 /f | Out-Null
-# Additional safe hardening for SMB guest auth
-reg add "HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters" /v AllowInsecureGuestAuth /t REG_DWORD /d 0 /f | Out-Null
-
-# SMB signing - Server
-reg add "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v EnableSecuritySignature  /t REG_DWORD /d 1 /f | Out-Null
-reg add "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v RequireSecuritySignature /t REG_DWORD /d 1 /f | Out-Null
-# SMB signing - Client (Workstation)
-reg add "HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters" /v EnableSecuritySignature  /t REG_DWORD /d 1 /f | Out-Null
-reg add "HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters" /v RequireSecuritySignature /t REG_DWORD /d 1 /f | Out-Null
-
-# ------------------------------
 # 4) Secure RDP + enable RDP + NLA + clipboard off
 # ------------------------------
 Write-Host "Hardening RDP (enable + NLA + disable clipboard)..."
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f | Out-Null
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 1 /f | Out-Null
-reg add "HKLM\Software\Policies\Microsoft\Windows NT\Terminal Services" /v fDisableClip /t REG_DWORD /d 1 /f | Out-Null
+
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
+/v UserAuthentication /t REG_DWORD /d 1 /f | Out-Null
+
+reg add "HKLM\Software\Policies\Microsoft\Windows NT\Terminal Services" `
+/v fDisableClip /t REG_DWORD /d 1 /f | Out-Null
 
 # ------------------------------
 # 4b) Limit RDP max resolution 1280x1024 (server policy)
@@ -375,17 +230,17 @@ foreach ($svc in $services) {
 }
 
 # ------------------------------
-# 8) RDP brute-force threshold via policy (Account Lockout Policy)
+# 8) Account lockout + password policy
 # ------------------------------
-Write-Host "Setting Account Lockout Policy (RDP brute-force threshold)..."
-cmd.exe /c "net accounts /lockoutthreshold:$LockoutThreshold" | Out-Null
-cmd.exe /c "net accounts /lockoutduration:$LockoutDuration" | Out-Null
-cmd.exe /c "net accounts /lockoutwindow:$LockoutWindow" | Out-Null
+Write-Host "Setting account lockout policy..."
+net accounts /lockoutthreshold:5 | Out-Null
+net accounts /lockoutduration:30 | Out-Null
+net accounts /lockoutwindow:30 | Out-Null
 
 Write-Host "Setting password policy..."
-cmd.exe /c "net accounts /minpwlen:12" | Out-Null
-cmd.exe /c "net accounts /maxpwage:30" | Out-Null
-cmd.exe /c "net accounts /uniquepw:5" | Out-Null
+net accounts /minpwlen:12 | Out-Null
+net accounts /maxpwage:30 | Out-Null
+net accounts /uniquepw:5 | Out-Null
 
 # ------------------------------
 # 9) Enable audit logging
@@ -400,12 +255,22 @@ Write-Host "Disabling LM Hash storage..."
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v NoLMHash /t REG_DWORD /d 1 /f | Out-Null
 
 # ------------------------------
-# 11) Apply Explorer view to ALL user profiles
+# 11) Explorer view settings (current user)
+# - show hidden files/folders
+# - show protected OS files
+# - show file extensions
 # ------------------------------
-Apply-ExplorerViewToAllProfiles
+Write-Host "Setting Explorer view (show hidden files, OS files, file extensions)..."
+$adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+New-Item -Path $adv -Force | Out-Null
+Set-ItemProperty -Path $adv -Name "Hidden"         -Type DWord -Value 1   # 1=show hidden
+Set-ItemProperty -Path $adv -Name "ShowSuperHidden" -Type DWord -Value 1  # show protected OS files
+Set-ItemProperty -Path $adv -Name "HideFileExt"    -Type DWord -Value 0   # 0=show extensions
 
-# Best-effort: refresh Explorer if exists (Server Core may not have it)
-try { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue } catch {}
+# Refresh Explorer setting (best-effort)
+try {
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+} catch {}
 
 # ------------------------------
 # 12) Install IPBan (fail2ban-like)
@@ -479,12 +344,7 @@ Write-Host "============================================================" -Foreg
 Write-Host " HARDENING COMPLETED" -ForegroundColor Magenta
 Write-Host (" RDP Port : {0}   (connect: mstsc -> IP:{0})" -f $NewRdpPort) -ForegroundColor Cyan
 Write-Host " RDP Max  : 1280x1024 (server policy limit)" -ForegroundColor Cyan
-Write-Host " Guest    : disabled" -ForegroundColor Cyan
-Write-Host " Banner   : enabled" -ForegroundColor Cyan
-Write-Host " NTLMv1   : disabled (prefers NTLMv2 only)" -ForegroundColor Cyan
-Write-Host " SMB Sign : required (client+server)" -ForegroundColor Cyan
-Write-Host " Explorer : applied to ALL profiles (hidden + OS files + extensions)" -ForegroundColor Cyan
-Write-Host (" Lockout  : threshold={0}, duration={1}m, window={2}m" -f $LockoutThreshold,$LockoutDuration,$LockoutWindow) -ForegroundColor Cyan
+Write-Host " Explorer : show hidden + OS files + extensions (current user)" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Magenta
 Write-Host ""
 
@@ -502,4 +362,4 @@ if ($CloudPasswordPlain) {
     Write-Host "Clouduser password not printed (user already existed or creation failed)." -ForegroundColor Yellow
 }
 
-Write-Host "Reboot recommended (especially for NTLM/SMB policy consistency)." -ForegroundColor Yellow
+Write-Host "Reboot recommended." -ForegroundColor Yellow
