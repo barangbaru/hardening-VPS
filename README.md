@@ -199,3 +199,87 @@ sudo ./setup-rhel9-hss.sh
   </samp>
 </div>
 </details>
+<details> 
+   <summary><img src="https://img.shields.io/badge/Windows-0078D6?style=plastic&logo=windows&logoColor=white"> Windows server 2022</summary>
+<div>
+  <samp>
+
+### 🔐 Security & SSH Hardening
+- ✅ Ubah **SSH port** dari `22` → `62`
+- ✅ **SSH idle auto logout** setelah **15 menit**
+- ✅ **FIREWALLD rules otomatis**
+  - Allow `62/tcp`
+  - Remove / deny `22`
+- ✅ **Fail2ban aktif** untuk SSH port `62`
+  - Max retry: 5
+  - Ban time: 15 menit
+
+---
+
+### 🧾 Logging & Audit (Compliance Ready)
+- ✅ **Auditd execve**
+  - Mencatat seluruh command execution
+- ✅ **Sudo logging**
+  - Direlokasi ke `/var/log_activity/sudo.log`
+- ✅ **User & Root history logging**
+  - Timestamp lengkap (tanggal & jam)
+  - Berlaku untuk:
+    - Root login langsung
+    - `sudo -i`
+    - `sudo su -`
+    - `su -`
+- ✅ **Central command history log**
+
+- ✅ **Retensi log 7 hari**
+- Rotate harian
+- Compress
+- Menggunakan logrotate
+
+---
+
+### 🖥️ System & Usability
+- ✅ **Docker Engine latest** (official Docker repository)
+- ✅ **Docker Compose plugin**
+- ✅ **Timezone Asia/Jakarta**
+- ✅ **Dynamic MOTD + cache**
+- Hostname
+- Environment
+- Public & Local IP
+- Disk root usage
+- CPU & Memory
+- Users logged in
+- ✅ **Disable banner & MOTD bawaan Ubuntu**
+- ✅ **Netstat tersedia** (`net-tools`)
+
+---
+
+### 📁 Lokasi Log Penting
+```text
+/var/log_activity/
+├── command-history.log
+├── command-history.log.1.gz
+├── sudo.log
+├── sudo.log.1.gz
+
+/var/log/audit/audit.log
+```
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif"><br><br>
+## <img src="https://media2.giphy.com/media/QssGEmpkyEOhBCb7e1/giphy.gif?cid=ecf05e47a0n3gi1bfqntqmob8g9aid1oyj2wr3ds3mg700bl&rid=giphy.gif" width ="25"><b>  Cara Instalasi</b> 
+
+🔹 Eksekusi Langsung dari GitHub menggunakan powershell as administrator (Recommended) 
+```sh
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/barangbaru/hardening-VPS/refs/heads/main/setup-windows.ps1 -UseBasicParsing | iex"
+```
+🔹 Alternatif: Download lalu Jalankan
+```sh
+sudo su / sudo -i
+
+curl -fsSL -o setup-ubuntu24-hss.sh \
+https://raw.githubusercontent.com/barangbaru/hardening-VPS/main/setup-rhel9-hss.sh
+
+chmod +x setup-rhel9-hss.sh
+sudo ./setup-rhel9-hss.sh
+```
+  </samp>
+</div>
+</details>
