@@ -251,7 +251,7 @@ USERS_LOGGED_IN="$(who | awk '{print $1}' | sort -u | tr '\n' ' ')"
 
 cat > "${TMP_FILE}" <<BANNER
 ======================================================================
-  COMPLIANCE NOTICE (ISO/IEC 27001 • SOC 2) — tertanda: hssolution.online
+  COMPLIANCE NOTICE (ISO/IEC 27001 • SOC 2) — by : hssolution.online
 ----------------------------------------------------------------------
   Authorized access only. All activities may be monitored and logged.
 ======================================================================
