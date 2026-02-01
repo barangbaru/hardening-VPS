@@ -302,21 +302,12 @@ Write-Host ""
 if ($CloudPasswordPlain) {
     # "Bold/bigger" isn't truly possible in standard console output,
     # so we use a big banner + bright color to make it stand out.
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Magenta
-Write-Host " HARDENING COMPLETED" -ForegroundColor Magenta
-Write-Host "============================================================" -ForegroundColor Magenta
-
-if ($CloudPasswordPlain) {
-    Write-Host ""
-    Write-Host "██████╗ ██╗      ██████╗ ██╗   ██╗██████╗" -ForegroundColor Yellow
-    Write-Host "██╔══██╗██║     ██╔═══██╗██║   ██║██╔══██╗" -ForegroundColor Yellow
-    Write-Host "██║  ██║██║     ██║   ██║██║   ██║██║  ██║" -ForegroundColor Yellow
-    Write-Host "██║  ██║██║     ██║   ██║██║   ██║██║  ██║" -ForegroundColor Yellow
-    Write-Host "██████╔╝███████╗╚██████╔╝╚██████╔╝██████╔╝" -ForegroundColor Yellow
-    Write-Host ""
+    Write-Host "###############################" -ForegroundColor Yellow
+    Write-Host "#   CLOUD USER CREDENTIALS    #" -ForegroundColor Yellow
+    Write-Host "###############################" -ForegroundColor Yellow
     Write-Host ("USERNAME : {0}" -f $CloudUser) -ForegroundColor Green
     Write-Host ("PASSWORD : {0}" -f $CloudPasswordPlain) -ForegroundColor Green
+    Write-Host "###############################" -ForegroundColor Yellow
     Write-Host ""
 } else {
     Write-Host "Clouduser password not printed (user already existed or creation failed)." -ForegroundColor Yellow
