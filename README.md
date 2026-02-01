@@ -1,4 +1,12 @@
-#  VPS Hardening Script  
+<div align="center">
+   <img width=100% src=https://capsule-render.vercel.app/api?type=waving&height=100&color=gradient&reversal=true />
+</div>
+
+<h1 align="center">
+ VPS Hardening Script  
+
+</h3>
+
 ### <picture> <img src = "https://github.com/7oSkaaa/7oSkaaa/blob/main/Images/OS.gif?raw=true" width = 50px>  </picture> Operating Systems
  
 <p align="center">
