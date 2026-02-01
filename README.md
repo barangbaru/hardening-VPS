@@ -1,15 +1,12 @@
-# hardening-VPS
-Auto Hardening VPS server
+#  VPS Hardening Script
 
-# Ubuntu 24.04 VPS Hardening Script
-
-Automated **hardening script untuk Ubuntu Server 24.04**, dirancang untuk kebutuhan **production**, **security baseline**, dan **compliance-oriented environment** (ISO 27001 / SOC 2 style).
+Automated **hardening script**, dirancang untuk kebutuhan **production**, **security baseline**, dan **compliance-oriented environment** (ISO 27001 / SOC 2 style).
 
 Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit, SSH hardening, firewall, serta usability dasar untuk admin.
 
 ---
 
-## 🚀 Fitur Utama
+## 🚀 Fitur Utama Ubuntu 24.04
 
 ### 🔐 Security & SSH Hardening
 - ✅ Ubah **SSH port** dari `22` → `62`
@@ -60,9 +57,8 @@ Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit
 
 ---
 
-## 📁 Lokasi Log Penting
+### 📁 Lokasi Log Penting
 
-```text
 /var/log_activity/
 ├── command-history.log
 ├── command-history.log.1.gz
@@ -70,10 +66,16 @@ Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit
 ├── sudo.log.1.gz
 /var/log/audit/audit.log
 
-🔹 Eksekusi Langsung dari GitHub (Recommended)
-sudo bash -c "$(curl -fsSL https://github.com/barangbaru/hardening-VPS/blob/main/setup-ubuntu24-hss.sh)"
+---
 
+## 🚀 Cara Instalasi
+
+🔹 Eksekusi Langsung dari GitHub (Recommended)
+```sh
+sudo bash -c "$(curl -fsSL https://github.com/barangbaru/hardening-VPS/blob/main/setup-ubuntu24-hss.sh)"
+```
 🔹 Alternatif: Download lalu Jalankan
+```sh
 sudo su / sudo -i
 
 curl -fsSL -o setup-ubuntu24-hss.sh \
@@ -81,4 +83,5 @@ https://raw.githubusercontent.com/barangbaru/hardening-VPS/main/setup-ubuntu24-h
 
 chmod +x setup-ubuntu24-hss.sh
 sudo ./setup-ubuntu24-hss.sh
+```
 
