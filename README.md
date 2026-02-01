@@ -116,7 +116,7 @@ sudo ./setup-ubuntu24-hss.sh
 </details>
 
 <details> 
-   <summary><img src="https://img.shields.io/badge/Linux-FCC624?style=plastic&logo=linux&logoColor=black"> RHEL 9</summary>
+   <summary><img src="https://img.shields.io/badge/Linux-FCC624?style=plastic&logo=linux&logoColor=black"> RHEL 9.7</summary>
 <div>
   <samp>
 
