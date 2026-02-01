@@ -21,36 +21,13 @@ $PasswordLength = 20
 # Contoh: $TrustedRdpIPs = @("203.0.113.10","198.51.100.25")
 $TrustedRdpIPs = @()
 
-# ==============================
-# FORCE RUN AS ADMIN (AUTO-ELEVATE)
-# ==============================
-function Test-IsAdmin {
-    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-if (-not (Test-IsAdmin)) {
-    Write-Host "Not running as Administrator. Relaunching elevated..." -ForegroundColor Yellow
-    $args = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    Start-Process -FilePath "powershell.exe" -ArgumentList $args -Verb RunAs
-    exit
-}
-
-$ErrorActionPreference = "Stop"
-
-# --- CONFIG ---
-$NewRdpPort = 3889
-$CloudUser  = "clouduser"
-$PasswordLength = 20
-$TrustedRdpIPs = @()
-
 # ------------------------------
 # Helper: generate strong random password
 # ------------------------------
 function New-StrongRandomPassword {
     param([int]$Length = 20)
 
+    # Ensure complexity: at least 1 upper, 1 lower, 1 digit, 1 symbol
     $upper  = "ABCDEFGHJKLMNPQRSTUVWXYZ"
     $lower  = "abcdefghijkmnpqrstuvwxyz"
     $digits = "23456789"
@@ -72,8 +49,11 @@ function New-StrongRandomPassword {
     $pw.Add((Get-RandChar $digits.ToCharArray()))
     $pw.Add((Get-RandChar $sym.ToCharArray()))
 
-    for ($i = $pw.Count; $i -lt $Length; $i++) { $pw.Add((Get-RandChar $all)) }
+    for ($i = $pw.Count; $i -lt $Length; $i++) {
+        $pw.Add((Get-RandChar $all))
+    }
 
+    # Shuffle
     for ($i = $pw.Count - 1; $i -gt 0; $i--) {
         $b = New-Object byte[] 4
         $rng.GetBytes($b)
@@ -85,77 +65,35 @@ function New-StrongRandomPassword {
     return -join $pw
 }
 
-# ==============================
-# CREATE clouduser (robust)
-# ==============================
-Write-Host "Ensuring local user '$CloudUser' exists..." -ForegroundColor Cyan
+Write-Host "Starting Windows VPS Hardening..." -ForegroundColor Cyan
+
+# ------------------------------
+# 0) Create clouduser with random password + allow RDP
+# ------------------------------
 $CloudPasswordPlain = $null
-
-function LocalUser-Exists($name) {
-    # Try LocalAccounts cmdlets
-    try {
-        if (Get-Command Get-LocalUser -ErrorAction SilentlyContinue) {
-            $u = Get-LocalUser -Name $name -ErrorAction SilentlyContinue
-            return [bool]$u
-        }
-    } catch {}
-
-    # Fallback: net user
-    $null = cmd.exe /c "net user $name" 2>$null
-    return ($LASTEXITCODE -eq 0)
-}
-
-function Create-CloudUser($name, $plainPassword) {
-    $created = $false
-
-    # Attempt 1: New-LocalUser
-    try {
-        if (Get-Command New-LocalUser -ErrorAction SilentlyContinue) {
-            $sec = ConvertTo-SecureString $plainPassword -AsPlainText -Force
-            New-LocalUser -Name $name `
-                -Password $sec `
-                -FullName "Cloud Support User" `
-                -Description "Auto-created by hardening script" `
-                -PasswordNeverExpires $true `
-                -AccountNeverExpires $true | Out-Null
-            $created = $true
-        }
-    } catch {
-        Write-Host "New-LocalUser failed, will fallback to net user..." -ForegroundColor Yellow
-    }
-
-    # Attempt 2: net user (fallback)
-    if (-not $created) {
-        cmd.exe /c "net user $name $plainPassword /add /y" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "net user create failed (exit $LASTEXITCODE)" }
-
-        # Password never expires (WMIC deprecated sometimes; use PowerShell ADSI fallback)
-        try {
-            cmd.exe /c "wmic useraccount where name='$name' set PasswordExpires=false" | Out-Null
-        } catch {}
-
-        $created = $true
-    }
-
-    # Add to groups for RDP login
-    cmd.exe /c "net localgroup `"Remote Desktop Users`" $name /add" | Out-Null
-    cmd.exe /c "net localgroup `"Users`" $name /add" | Out-Null
-
-    return $created
-}
-
 try {
-    if (-not (LocalUser-Exists $CloudUser)) {
+    $existing = Get-LocalUser -Name $CloudUser -ErrorAction SilentlyContinue
+    if (-not $existing) {
+        Write-Host "Creating local user '$CloudUser' with random password..."
         $CloudPasswordPlain = New-StrongRandomPassword -Length $PasswordLength
-        $ok = Create-CloudUser -name $CloudUser -plainPassword $CloudPasswordPlain
-        if ($ok) {
-            Write-Host "User '$CloudUser' created and granted RDP access." -ForegroundColor Green
-        }
+        $sec = ConvertTo-SecureString $CloudPasswordPlain -AsPlainText -Force
+
+        New-LocalUser -Name $CloudUser `
+            -Password $sec `
+            -FullName "Cloud Support User" `
+            -Description "Auto-created by hardening script" `
+            -PasswordNeverExpires $true `
+            -AccountNeverExpires $true | Out-Null
+
+        # Allow RDP login by group membership
+        Add-LocalGroupMember -Group "Remote Desktop Users" -Member $CloudUser -ErrorAction SilentlyContinue
+
+        Write-Host "User '$CloudUser' created and added to 'Remote Desktop Users'." -ForegroundColor Green
     } else {
         Write-Host "User '$CloudUser' already exists. Skipping creation." -ForegroundColor Yellow
     }
 } catch {
-    Write-Host "Cloud user creation FAILED: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Cloud user creation failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # ------------------------------
