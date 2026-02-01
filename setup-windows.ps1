@@ -180,71 +180,6 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v RestrictAnonymous /t REG_
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v RestrictAnonymousSAM /t REG_DWORD /d 1 /f | Out-Null
 
 # ------------------------------
-# 4) Secure RDP (enable RDP + NLA + clipboard off)
-# ------------------------------
-Write-Host "Hardening RDP (enable + NLA + disable clipboard)..."
-# Ensure RDP enabled
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f | Out-Null
-
-# Enable NLA
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
-/v UserAuthentication /t REG_DWORD /d 1 /f | Out-Null
-
-# Disable RDP clipboard
-reg add "HKLM\Software\Policies\Microsoft\Windows NT\Terminal Services" `
-/v fDisableClip /t REG_DWORD /d 1 /f | Out-Null
-
-# ------------------------------
-# 4b) Limit RDP max resolution to 1280x1024
-# (This limits sessions; client may choose smaller, but not larger.)
-# ------------------------------
-Write-Host "Setting RDP max resolution limit to 1280x1024..."
-$tsPol = "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"
-New-Item -Path $tsPol -Force | Out-Null
-New-ItemProperty -Path $tsPol -Name "MaxXResolution" -PropertyType DWord -Value 1280 -Force | Out-Null
-New-ItemProperty -Path $tsPol -Name "MaxYResolution" -PropertyType DWord -Value 1024 -Force | Out-Null
-
-# ------------------------------
-# 5) Change RDP Port -> 3889 + restart TermService
-# ------------------------------
-Write-Host "Changing RDP port to $NewRdpPort..."
-$rdpRegPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"
-Set-ItemProperty -Path $rdpRegPath -Name "PortNumber" -Value $NewRdpPort -Type DWord
-
-Write-Host "Restarting TermService..."
-Restart-Service -Name TermService -Force
-
-# ------------------------------
-# 6) Windows Firewall - Default Deny + Allow RDP 3889
-# ------------------------------
-Write-Host "Configuring Windows Firewall (default inbound block)..."
-Set-NetFirewallProfile -Profile Domain,Public,Private `
-    -Enabled True `
-    -DefaultInboundAction Block `
-    -DefaultOutboundAction Allow
-
-# Remove old "Allow RDP" rule if exists (avoid leaving 3389 open)
-Get-NetFirewallRule -DisplayName "Allow RDP" -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
-
-# Create allow rule for new RDP port
-if ($TrustedRdpIPs.Count -gt 0) {
-    Write-Host "Allowing RDP only from trusted IPs: $($TrustedRdpIPs -join ', ')"
-    New-NetFirewallRule -DisplayName "Allow RDP" `
-        -Direction Inbound `
-        -Protocol TCP `
-        -LocalPort $NewRdpPort `
-        -RemoteAddress ($TrustedRdpIPs -join ",") `
-        -Action Allow | Out-Null
-} else {
-    Write-Host "Allowing RDP from ANY IP (recommended: set TrustedRdpIPs)"
-    New-NetFirewallRule -DisplayName "Allow RDP" `
-        -Direction Inbound `
-        -Protocol TCP `
-        -LocalPort $NewRdpPort `
-        -Action Allow | Out-Null
-}
-
-# ------------------------------
 # 7) Disable Unused Services
 # ------------------------------
 Write-Host "Disabling unnecessary services..."
@@ -348,6 +283,71 @@ try {
     Write-Host "ASR rules applied in BLOCK mode." -ForegroundColor Green
 } catch {
     Write-Host "ASR apply failed (some editions require Defender components/policies): $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
+# ------------------------------
+# 4) Secure RDP (enable RDP + NLA + clipboard off)
+# ------------------------------
+Write-Host "Hardening RDP (enable + NLA + disable clipboard)..."
+# Ensure RDP enabled
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f | Out-Null
+
+# Enable NLA
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
+/v UserAuthentication /t REG_DWORD /d 1 /f | Out-Null
+
+# Disable RDP clipboard
+reg add "HKLM\Software\Policies\Microsoft\Windows NT\Terminal Services" `
+/v fDisableClip /t REG_DWORD /d 1 /f | Out-Null
+
+# ------------------------------
+# 4b) Limit RDP max resolution to 1280x1024
+# (This limits sessions; client may choose smaller, but not larger.)
+# ------------------------------
+Write-Host "Setting RDP max resolution limit to 1280x1024..."
+$tsPol = "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"
+New-Item -Path $tsPol -Force | Out-Null
+New-ItemProperty -Path $tsPol -Name "MaxXResolution" -PropertyType DWord -Value 1280 -Force | Out-Null
+New-ItemProperty -Path $tsPol -Name "MaxYResolution" -PropertyType DWord -Value 1024 -Force | Out-Null
+
+# ------------------------------
+# 5) Change RDP Port -> 3889 + restart TermService
+# ------------------------------
+Write-Host "Changing RDP port to $NewRdpPort..."
+$rdpRegPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"
+Set-ItemProperty -Path $rdpRegPath -Name "PortNumber" -Value $NewRdpPort -Type DWord
+
+Write-Host "Restarting TermService..."
+Restart-Service -Name TermService -Force
+
+# ------------------------------
+# 6) Windows Firewall - Default Deny + Allow RDP 3889
+# ------------------------------
+Write-Host "Configuring Windows Firewall (default inbound block)..."
+Set-NetFirewallProfile -Profile Domain,Public,Private `
+    -Enabled True `
+    -DefaultInboundAction Block `
+    -DefaultOutboundAction Allow
+
+# Remove old "Allow RDP" rule if exists (avoid leaving 3389 open)
+Get-NetFirewallRule -DisplayName "Allow RDP" -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+
+# Create allow rule for new RDP port
+if ($TrustedRdpIPs.Count -gt 0) {
+    Write-Host "Allowing RDP only from trusted IPs: $($TrustedRdpIPs -join ', ')"
+    New-NetFirewallRule -DisplayName "Allow RDP" `
+        -Direction Inbound `
+        -Protocol TCP `
+        -LocalPort $NewRdpPort `
+        -RemoteAddress ($TrustedRdpIPs -join ",") `
+        -Action Allow | Out-Null
+} else {
+    Write-Host "Allowing RDP from ANY IP (recommended: set TrustedRdpIPs)"
+    New-NetFirewallRule -DisplayName "Allow RDP" `
+        -Direction Inbound `
+        -Protocol TCP `
+        -LocalPort $NewRdpPort `
+        -Action Allow | Out-Null
 }
 
 # ------------------------------
