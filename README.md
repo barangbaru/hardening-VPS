@@ -72,7 +72,7 @@ Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit
 
 🔹 Eksekusi Langsung dari GitHub (Recommended)
 ```sh
-sudo bash -c "$(curl -fsSL https://github.com/barangbaru/hardening-VPS/blob/main/setup-ubuntu24-hss.sh)"
+curl -fsSL https://raw.githubusercontent.com/barangbaru/hardening-VPS/refs/heads/main/setup-ubuntu24-hss.sh | sudo bash
 ```
 🔹 Alternatif: Download lalu Jalankan
 ```sh
