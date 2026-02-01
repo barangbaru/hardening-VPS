@@ -5,6 +5,7 @@ set -euo pipefail
 # CONFIG
 # =========================
 MAIN_USER="support"
+CLOUD_USER="clouduser"
 TZ="Asia/Jakarta"
 ENV_FILE="/etc/hss_env"                 # edit ini untuk ganti ENV (default production)
 
@@ -37,6 +38,15 @@ ensure_sshd_kv () {
   fi
 }
 
+gen_random_password () {
+  # 20 chars, safe-ish for terminals, no ambiguous chars requirement not specified
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 36 | tr -d '/+=\n' | head -c 20
+  else
+    tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20
+  fi
+}
+
 # =========================
 # 0) Ensure main user exists
 # =========================
@@ -53,6 +63,33 @@ if ! id -nG "${MAIN_USER}" | grep -qw sudo; then
   echo "[+] Adding '${MAIN_USER}' to sudo group..."
   usermod -aG sudo "${MAIN_USER}"
 fi
+
+# =========================
+# 0b) Ensure cloud sudo user exists (clouduser) + ALWAYS ROTATE password (no prompt)
+# =========================
+CLOUDUSER_PASS=""
+
+if id -u "${CLOUD_USER}" >/dev/null 2>&1; then
+  echo "[+] User '${CLOUD_USER}' already exists"
+else
+  echo "[+] Creating sudo user '${CLOUD_USER}'..."
+  adduser --disabled-password --gecos "" "${CLOUD_USER}"
+  usermod -aG sudo "${CLOUD_USER}"
+  echo "[+] '${CLOUD_USER}' added to sudo group"
+fi
+
+echo "[+] Rotating password for '${CLOUD_USER}' (random, no prompt)..."
+CLOUDUSER_PASS="$(gen_random_password)"
+echo "${CLOUD_USER}:${CLOUDUSER_PASS}" | chpasswd
+
+# Store creds securely for admin retrieval (overwrite each run)
+install -d -m 0700 /root
+{
+  echo "username=${CLOUD_USER}"
+  echo "password=${CLOUDUSER_PASS}"
+  echo "rotated_at=$(date '+%F %T %Z')"
+} > /root/clouduser.credentials
+chmod 0600 /root/clouduser.credentials
 
 # =========================
 # 1) Timezone Asia/Jakarta
@@ -539,7 +576,11 @@ EOF
 chmod 0440 /etc/sudoers.d/90-root-history
 
 chsh -s /bin/bash root || true
+
+# NOTE: ini sebelumnya ada, tapi biasanya log lebih aman dimiliki root/adm.
+# Kamu punya baris ini; aku biarkan sesuai script kamu:
 chown -R support:support /var/log_activity
+
 # =========================
 # Apply SSH config (reload at end)
 # =========================
@@ -558,6 +599,7 @@ echo " - Audit execve logs: /var/log/audit/audit.log (ausearch -k execve_all)"
 echo " - Sudo log: ${SUDO_LOG_NEW} (symlink ${SUDO_LOG_OLD} -> ${SUDO_LOG_NEW}, rotate 7)"
 echo " - Central history log: ${CMD_LOG} (rotate 7)"
 echo " - SSH idle logout: TMOUT=900 (SSH only) + ClientAliveInterval/CountMax"
+echo " - Cloud sudo user: ${CLOUD_USER} (credentials: /root/clouduser.credentials if created)"
 
 # =========================
 # Final apply & verification
@@ -575,3 +617,31 @@ netstat -tulpen | grep ":${SSH_PORT}" || {
 
 # Reload fail2ban just to be safe
 systemctl restart fail2ban || true
+
+# =========================
+# PRINT CLOUDUSER CREDS (bold + color, "bigger" via figlet if available)
+# =========================
+if [ -n "${CLOUDUSER_PASS}" ]; then
+  # Try to render "bigger" using figlet
+  if ! command -v figlet >/dev/null 2>&1; then
+    apt-get install -y figlet >/dev/null 2>&1 || true
+  fi
+
+  echo ""
+  echo -e "\e[1;33m======================================================================\e[0m"
+  echo -e "\e[1;32m[!] IMPORTANT: CLOUDUSER PASSWORD ROTATED — SAVE THIS NOW\e[0m"
+  echo -e "\e[1;33m======================================================================\e[0m"
+  echo ""
+
+  if command -v figlet >/dev/null 2>&1; then
+    echo -e "\e[1;36m$(figlet -w 120 "CLOUDUSER")\e[0m"
+  else
+    echo -e "\e[1;36mCLOUDUSER\e[0m"
+  fi
+
+  echo -e "\e[1;37mUsername:\e[0m \e[1;32m${CLOUD_USER}\e[0m"
+  echo -e "\e[1;37mPassword:\e[0m \e[1;31m\e[1m${CLOUDUSER_PASS}\e[0m"
+  echo ""
+  echo -e "\e[1;37mSaved to:\e[0m \e[1;33m/root/clouduser.credentials\e[0m (mode 600)"
+  echo -e "\e[1;33m======================================================================\e[0m"
+fi
