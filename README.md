@@ -3,10 +3,13 @@
 
 Automated **hardening script**, dirancang untuk kebutuhan **production**, **security baseline**, dan **compliance-oriented environment** (ISO 27001 / SOC 2 style).
 
-Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit, SSH hardening, firewall, serta usability dasar untuk admin.
+Untuk Linux based server cript ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit, SSH hardening, firewall, serta usability dasar untuk admin.
 ---
 
-## 🚀 Fitur Utama Ubuntu 24.04
+<details> 
+   <summary>🚀 Fitur Utama Ubuntu 24.04</summary>
+<div>
+  <samp>
 
 ### 🔐 Security & SSH Hardening
 - ✅ Ubah **SSH port** dari `22` → `62`
@@ -84,4 +87,6 @@ https://raw.githubusercontent.com/barangbaru/hardening-VPS/main/setup-ubuntu24-h
 chmod +x setup-ubuntu24-hss.sh
 sudo ./setup-ubuntu24-hss.sh
 ```
-
+  </samp>
+</div>
+</details>
