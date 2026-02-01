@@ -1,9 +1,9 @@
-#  VPS Hardening Script
+#  VPS Hardening Script  
+![Terminal](https://img.shields.io/badge/Terminal-%23054020?style=for-the-badge&logo=gnu-bash&logoColor=white)
 
 Automated **hardening script**, dirancang untuk kebutuhan **production**, **security baseline**, dan **compliance-oriented environment** (ISO 27001 / SOC 2 style).
 
 Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit, SSH hardening, firewall, serta usability dasar untuk admin.
-
 ---
 
 ## 🚀 Fitur Utama Ubuntu 24.04
@@ -67,9 +67,8 @@ Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit
 
 /var/log/audit/audit.log
 ```
----
-
-## 🚀 Cara Instalasi
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif"><br><br>
+## <img src="https://media2.giphy.com/media/QssGEmpkyEOhBCb7e1/giphy.gif?cid=ecf05e47a0n3gi1bfqntqmob8g9aid1oyj2wr3ds3mg700bl&rid=giphy.gif" width ="25"><b>  Cara Instalasi</b> 
 
 🔹 Eksekusi Langsung dari GitHub (Recommended)
 ```sh
