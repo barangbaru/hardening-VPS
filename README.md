@@ -36,3 +36,49 @@ Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit
     - `sudo su -`
     - `su -`
 - ✅ **Central command history log**
+
+- ✅ **Retensi log 7 hari**
+- Rotate harian
+- Compress
+- Menggunakan logrotate
+
+---
+
+### 🖥️ System & Usability
+- ✅ **Docker Engine latest** (official Docker repository)
+- ✅ **Docker Compose plugin**
+- ✅ **Timezone Asia/Jakarta**
+- ✅ **Dynamic MOTD + cache**
+- Hostname
+- Environment
+- Public & Local IP
+- Disk root usage
+- CPU & Memory
+- Users logged in
+- ✅ **Disable banner & MOTD bawaan Ubuntu**
+- ✅ **Netstat tersedia** (`net-tools`)
+
+---
+
+## 📁 Lokasi Log Penting
+
+```text
+/var/log_activity/
+├── command-history.log
+├── command-history.log.1.gz
+├── sudo.log
+├── sudo.log.1.gz
+/var/log/audit/audit.log
+
+🔹 Eksekusi Langsung dari GitHub (Recommended)
+sudo bash -c "$(curl -fsSL https://github.com/barangbaru/hardening-VPS/blob/main/setup-ubuntu24-hss.sh)"
+
+🔹 Alternatif: Download lalu Jalankan
+sudo su / sudo -i
+
+curl -fsSL -o setup-ubuntu24-hss.sh \
+https://raw.githubusercontent.com/barangbaru/hardening-VPS/main/setup-ubuntu24-hss.sh
+
+chmod +x setup-ubuntu24-hss.sh
+sudo ./setup-ubuntu24-hss.sh
+
