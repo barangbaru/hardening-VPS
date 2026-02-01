@@ -58,14 +58,15 @@ Script ini dapat dijalankan **langsung dari GitHub** dan mencakup logging, audit
 ---
 
 ### 📁 Lokasi Log Penting
-
+```text
 /var/log_activity/
 ├── command-history.log
 ├── command-history.log.1.gz
 ├── sudo.log
 ├── sudo.log.1.gz
-/var/log/audit/audit.log
 
+/var/log/audit/audit.log
+```
 ---
 
 ## 🚀 Cara Instalasi
