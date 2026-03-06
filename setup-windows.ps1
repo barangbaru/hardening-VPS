@@ -13,7 +13,7 @@
 $ErrorActionPreference = "Stop"
 
 # --- CONFIG ---
-$NewRdpPort = 3889
+$NewRdpPort = 3389
 $CloudUser  = "clouduser"
 $PasswordLength = 20
 
