@@ -240,6 +240,59 @@ reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent" `
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" `
 /v SystemPaneSuggestionsEnabled /t REG_DWORD /d 0 /f | Out-Null
 
+
+# ------------------------------
+# RDP STATIC ROUTING BYPASS VPN
+# Tujuan: koneksi RDP tetap lewat gateway utama, bukan route VPN
+# ------------------------------
+Write-Host "Configuring RDP static routing bypass VPN..." -ForegroundColor Cyan
+
+$RdpPort = 3889
+
+# Ambil interface dengan default gateway utama sebelum/selain VPN
+$MainRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" |
+    Where-Object {
+        $_.NextHop -ne "0.0.0.0" -and
+        $_.RouteMetric -lt 5000
+    } |
+    Sort-Object RouteMetric |
+    Select-Object -First 1
+
+if ($MainRoute) {
+    $MainInterfaceIndex = $MainRoute.InterfaceIndex
+    $MainGateway        = $MainRoute.NextHop
+
+    Write-Host "Main Interface Index : $MainInterfaceIndex" -ForegroundColor Green
+    Write-Host "Main Gateway         : $MainGateway" -ForegroundColor Green
+
+    # Turunkan prioritas route utama supaya tetap menang untuk management
+    Set-NetIPInterface -InterfaceIndex $MainInterfaceIndex -AutomaticMetric Disabled -InterfaceMetric 10
+
+    # Cari adapter VPN dan buat metric lebih besar
+    Get-NetIPInterface -AddressFamily IPv4 | Where-Object {
+        $_.InterfaceAlias -match "VPN|TAP|WireGuard|OpenVPN|Tailscale|ZeroTier|Pangolin|Tunnel"
+    } | ForEach-Object {
+        Write-Host "Setting VPN interface metric high: $($_.InterfaceAlias)"
+        Set-NetIPInterface -InterfaceIndex $_.InterfaceIndex -AutomaticMetric Disabled -InterfaceMetric 5000
+    }
+
+    # Firewall allow RDP 3889 dari semua IP / bisa diganti RemoteAddress tertentu
+    Get-NetFirewallRule -DisplayName "Allow RDP Static Bypass VPN" -ErrorAction SilentlyContinue |
+        Remove-NetFirewallRule -ErrorAction SilentlyContinue
+
+    New-NetFirewallRule `
+        -DisplayName "Allow RDP Static Bypass VPN" `
+        -Direction Inbound `
+        -Protocol TCP `
+        -LocalPort $RdpPort `
+        -Action Allow `
+        -Profile Any | Out-Null
+
+    Write-Host "RDP static routing bypass VPN applied." -ForegroundColor Green
+} else {
+    Write-Host "Main default gateway not found. Static bypass skipped." -ForegroundColor Red
+}
+
 # ==============================
 # DONE
 # ==============================
