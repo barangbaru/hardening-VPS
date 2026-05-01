@@ -292,6 +292,26 @@ if ($MainRoute) {
 } else {
     Write-Host "Main default gateway not found. Static bypass skipped." -ForegroundColor Red
 }
+# Ganti port RDP
+$NewPort = 3889
+
+Set-ItemProperty `
+-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" `
+-Name "PortNumber" -Value $NewPort
+
+Write-Host "RDP port changed to $NewPort"
+
+# Hapus rule lama (3389)
+Get-NetFirewallRule -DisplayName "RDP OLD" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+
+# Tambah rule baru
+New-NetFirewallRule `
+-DisplayName "RDP $NewPort" `
+-Direction Inbound `
+-Protocol TCP `
+-LocalPort $NewPort `
+-Action Allow
+
 
 # ==============================
 # DONE
@@ -302,3 +322,5 @@ Write-Host "Reboot recommended after VMware/Performance tuning." -ForegroundColo
 Write-Host " VM Perf  : VMware ESXi lightweight optimization enabled" -ForegroundColor Cyan
 Write-Host " Services : SysMain, Search, Telemetry, Error Reporting disabled" -ForegroundColor Cyan
 Write-Host " Power    : High Performance mode enabled" -ForegroundColor Cyan
+
+Restart-Service TermService -Force
