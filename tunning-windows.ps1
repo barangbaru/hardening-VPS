@@ -309,37 +309,7 @@ New-NetFirewallRule `
 -LocalPort $NewPort `
 -Action Allow
 
-# Install SNMP
-Install-WindowsFeature SNMP-Service -IncludeManagementTools
-
-# Set community string
-$community = "gokil"
-
-$snmpPath = "HKLM:\SYSTEM\CurrentControlSet\Services\SNMP\Parameters\ValidCommunities"
-New-Item -Path $snmpPath -Force | Out-Null
-New-ItemProperty -Path $snmpPath -Name $community -PropertyType DWord -Value 4 -Force | Out-Null
-
-# Allow monitoring manager
-# Ganti IP ini ke IP Zabbix/LibreNMS/NMS kamu
-$monitoringIP = "192.168.92.100"
-
-$managerPath = "HKLM:\SYSTEM\CurrentControlSet\Services\SNMP\Parameters\PermittedManagers"
-New-Item -Path $managerPath -Force | Out-Null
-New-ItemProperty -Path $managerPath -Name "1" -PropertyType String -Value $monitoringIP -Force | Out-Null
-
-# Enable service
-Set-Service SNMP -StartupType Automatic
-Restart-Service SNMP
-
-# Open firewall UDP 161
-New-NetFirewallRule `
-  -DisplayName "SNMP UDP 161" `
-  -Direction Inbound `
-  -Protocol UDP `
-  -LocalPort 161 `
-  -RemoteAddress $monitoringIP `
-  -Action Allow
-  
+ 
 # ==============================
 # DONE
 # ==============================
