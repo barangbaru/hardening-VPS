@@ -85,9 +85,7 @@ $vmPerfServices = @(
     "lfsvc",                # Geolocation Service
     "RetailDemo",           # Retail Demo Service
     "XblGameSave",
-    "XboxNetApiSvc",
-    "WerSvc",               # Windows Error Reporting
-    "PcaSvc"                # Program Compatibility Assistant
+    "XboxNetApiSvc"
 )
 
 foreach ($svc in $vmPerfServices) {
