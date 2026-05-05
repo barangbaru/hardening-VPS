@@ -38,7 +38,6 @@ $desktopReg = "HKCU:\Control Panel\Desktop"
 New-Item -Path $desktopReg -Force | Out-Null
 
 # Disable animations & UI effects
-Set-ItemProperty -Path $desktopReg -Name "UserPreferencesMask" -Value ([byte[]](144,18,3,128,16,0,0,0))
 Set-ItemProperty -Path $desktopReg -Name "DragFullWindows" -Value "0"
 Set-ItemProperty -Path $desktopReg -Name "MenuShowDelay" -Value "0"
 
