@@ -4,7 +4,7 @@ set -euo pipefail
 # =========================
 # CONFIG
 # =========================
-MAIN_USER="superman"
+MAIN_USER="support"
 CLOUD_USER="clouduser"
 TZ="Asia/Jakarta"
 ENV_FILE="/etc/hss_env"                 # edit ini untuk ganti ENV (default production)
