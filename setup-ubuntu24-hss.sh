@@ -137,6 +137,16 @@ echo "[+] Installing netstat (net-tools)..."
 apt-get install -y net-tools
 
 # =========================
+# Install Cockpit (from backports)
+# =========================
+echo "[+] Installing Cockpit (from backports)..."
+. /etc/os-release
+apt-get install -t "${VERSION_CODENAME}-backports" cockpit -y
+systemctl enable --now cockpit.socket
+ufw allow 9090/tcp comment "Cockpit Web Console" || true
+echo "[+] Cockpit installed and enabled (port 9090)"
+
+# =========================
 # 3) Logging activity (auditd execve + history timestamps)
 # =========================
 echo "[+] Enabling activity logging (auditd execve + history timestamps)..."
@@ -604,6 +614,7 @@ echo " - Sudo log: ${SUDO_LOG_NEW} (symlink ${SUDO_LOG_OLD} -> ${SUDO_LOG_NEW}, 
 echo " - Central history log: ${CMD_LOG} (rotate 7)"
 echo " - SSH idle logout: TMOUT=900 (SSH only) + ClientAliveInterval/CountMax"
 echo " - Cloud sudo user: ${CLOUD_USER} (credentials: /root/clouduser.credentials if created)"
+echo " - Cockpit Web Console: http://<server-ip>:9090 (UFW port 9090 opened)"
 
 # =========================
 # Final apply & verification
